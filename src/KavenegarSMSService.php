@@ -3,46 +3,48 @@
 namespace Rezak\KavenegarSMS;
 
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 
 class KavenegarSMSService
 {
     /**
-     * Kavenegar API token
+     * Kavenegar API token.
      *
      * @var string
      */
     protected string $kavenegarToken;
 
     /**
-     * Kavenegar API base URL
+     * Kavenegar API base URL.
      *
      * @var string
      */
     protected string $kavenegarBaseUrl = 'https://api.kavenegar.com/v1/';
 
     /**
-     * The template name for the SMS
+     * The template name for the SMS.
      *
      * @var string|null
      */
-    protected ?string $templateName = null;
+    protected ?string $templateName;
 
     /**
-     * The phone number to send SMS to
+     * The phone number to send SMS to.
      *
      * @var string|null
      */
-    protected ?string $phone = null;
+    protected ?string $phone;
+
+    protected ?string $token;
+    protected ?string $token2;
+    protected ?string $token3;
+    protected ?string $token10;
+    protected ?string $token20;
 
     /**
-     * Additional parameters for the SMS template
+     * Constructor to initialize Kavenegar token.
      *
-     * @var array
-     */
-    protected array $params = [];
-
-    /**
-     * Constructor to initialize Kavenegar token
+     * @param string $kavenegarToken
      */
     public function __construct(string $kavenegarToken)
     {
@@ -50,51 +52,105 @@ class KavenegarSMSService
     }
 
     /**
-     * Set the template name
+     * Set the template name.
+     *
+     * @param string $templateName
+     * @return static
      */
-    public function setTemplateName(string $templateName): void
+    public function setTemplateName(string $templateName): static
     {
         $this->templateName = $templateName;
+        return $this;
     }
 
     /**
-     * Set the phone number
+     * Set the phone number.
+     *
+     * @param string $phone
+     * @return static
      */
-    public function setPhone(string $phone): void
+    public function setPhone(string $phone): static
     {
         $this->phone = $phone;
+        return $this;
     }
 
-    /**
-     * Set the parameters for the template
-     */
-    public function setParams(array $params): void
+    public function getParams(): array
     {
-        $this->params = $this->formatParams($params);
+        $params = [];
+
+        $tokens = [
+            'token' => $this->token ?? null,
+            'token2' => $this->token2 ?? null,
+            'token3' => $this->token3 ?? null,
+            'token10' => $this->token10 ?? null,
+            'token20' => $this->token20 ?? null,
+        ];
+    
+        foreach ($tokens as $key => $value) {
+            if ($value !== null) {
+                $params[$key] = $value;
+            }
+        }
+    
+        return $params;
     }
 
     /**
-     * Send the templated SMS using Kavenegar API
+     * Send the templated SMS using Kavenegar API.
      *
      * @return bool
+     * @throws InvalidArgumentException
      */
     public function sendTemplatedSMS(): bool
     {
-        if (!$this->templateName || !$this->phone) {
-            throw new \InvalidArgumentException('Template name and phone number are required.');
-        }
+        $this->validateParameters();
 
-        $body = array_merge(
+        $body = $this->prepareRequestBody();
+
+        $response = Http::post($this->kavenegarBaseUrl . $this->kavenegarToken . '/verify/lookup.json', $body);
+
+        return $this->isResponseSuccessful($response);
+    }
+
+    /**
+     * Validate the template name and phone number.
+     *
+     * @return void
+     * @throws InvalidArgumentException
+     */
+    protected function validateParameters(): void
+    {
+        if (!isset($this->templateName) || !isset($this->phone)) {
+            throw new InvalidArgumentException('Template name and phone number are required.');
+        }
+    }
+
+    /**
+     * Prepare the request body for the SMS API.
+     *
+     * @return array
+     */
+    protected function prepareRequestBody(): array
+    {
+        return array_merge(
             [
                 'receptor' => $this->phone,
                 'template' => $this->templateName,
                 'sender' => '2000500666',
             ],
-            $this->params
+            $this->getParams()
         );
+    }
 
-        $response = Http::post($this->kavenegarBaseUrl . $this->kavenegarToken . '/verify/lookup.json', $body);
-
+    /**
+     * Check if the response from the API is successful.
+     *
+     * @param \Illuminate\Http\Client\Response $response
+     * @return bool
+     */
+    protected function isResponseSuccessful($response): bool
+    {
         if ($response->failed()) {
             return false;
         }
@@ -104,37 +160,33 @@ class KavenegarSMSService
         return isset($result['return']['status']) && $result['return']['status'] === 200;
     }
 
-    /**
-     * Format parameters to Kavenegar template tokens
-     */
-    protected function formatParams(array $params): array
+    public function setToken(string $token): static
     {
-        if (empty($params)) {
-            return ['token' => '.'];
-        }
+        $this->token = $token;
+        return $this;
+    }
 
-        $formattedParams = [];
+    public function setToken2(string $token2): static
+    {
+        $this->token2 = $token2;
+        return $this;
+    }
+    
+    public function setToken3(string $token3): static
+    {
+        $this->token3 = $token3;
+        return $this;
+    }
 
-        foreach (array_values($params) as $key => $param) {
-            switch ($key) {
-                case 0:
-                    $formattedParams['token'] = $param;
-                    break;
-                case 1:
-                    $formattedParams['token10'] = $param;
-                    break;
-                case 2:
-                    $formattedParams['token20'] = $param;
-                    break;
-                case 3:
-                    $formattedParams['token2'] = $param;
-                    break;
-                case 4:
-                    $formattedParams['token3'] = $param;
-                    break;
-            }
-        }
+    public function setToken10(string $token10): static
+    {
+        $this->token10 = $token10;
+        return $this;
+    }
 
-        return $formattedParams;
+    public function setToken20(string $token20): static
+    {
+        $this->token20 = $token20;
+        return $this;
     }
 }
