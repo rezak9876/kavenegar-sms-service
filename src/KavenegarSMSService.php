@@ -54,6 +54,7 @@ class KavenegarSMSService
     {
         $this->validateParameters();
         $body = $this->prepareRequestBody();
+        dd($body);
         $response = Http::post($this->kavenegarBaseUrl . $this->kavenegarToken . '/verify/lookup.json', $body);
         return $this->isResponseSuccessful($response);
     }
